@@ -34,6 +34,6 @@ jobs:
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git pull --rebase
-          git add bikemi_data.csv start_time.txt
+          git add bikemi_data.csv
           git commit -m "Update BikeMi data" || echo "No changes to commit"
           git push
