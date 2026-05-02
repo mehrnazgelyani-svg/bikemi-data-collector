@@ -1,52 +1,36 @@
-import requests
-import pandas as pd
-from datetime import datetime
-import os
+name: Collect BikeMi Data
 
-STATUS_URL = "https://gbfs.urbansharing.com/bikemi.com/station_status.json"
-OUTPUT_FILE = "bikemi_data.csv"
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
 
-headers = {
-    "Client-Identifier": "student-bikemi-research"
-}
+permissions:
+  contents: write
 
-timestamp = datetime.utcnow()
+jobs:
+  collect:
+    runs-on: ubuntu-latest
 
-response = requests.get(STATUS_URL, headers=headers, timeout=20)
-response.raise_for_status()
-data = response.json()
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-stations = data["data"]["stations"]
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
 
-new_df = pd.DataFrame([{
-    "timestamp": timestamp,
-    "station_id": s["station_id"],
-    "num_bikes_available": s.get("num_bikes_available"),
-    "num_docks_available": s.get("num_docks_available")
-} for s in stations])
+      - name: Install dependencies
+        run: pip install pandas requests
 
-# If no previous file exists, save first snapshot
-if not os.path.exists(OUTPUT_FILE):
-    new_df.to_csv(OUTPUT_FILE, index=False)
-    print("First snapshot saved.")
-    exit()
+      - name: Run script
+        run: python collect_bikemi.py
 
-old_df = pd.read_csv(OUTPUT_FILE)
-
-# Get latest saved snapshot
-old_df["timestamp"] = pd.to_datetime(old_df["timestamp"])
-latest_time = old_df["timestamp"].max()
-latest_df = old_df[old_df["timestamp"] == latest_time]
-
-# Compare only station_id + bike/dock availability
-compare_cols = ["station_id", "num_bikes_available", "num_docks_available"]
-
-new_compare = new_df[compare_cols].sort_values("station_id").reset_index(drop=True)
-latest_compare = latest_df[compare_cols].sort_values("station_id").reset_index(drop=True)
-
-# If same as previous snapshot, skip saving
-if new_compare.equals(latest_compare):
-    print("No change from previous snapshot. Skipping save.")
-else:
-    new_df.to_csv(OUTPUT_FILE, mode="a", header=False, index=False)
-    print("Availability changed. New snapshot saved.")
+      - name: Commit data
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add bikemi_data.csv
+          git diff --cached --quiet || git commit -m "Update BikeMi data"
+          git push
