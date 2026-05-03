@@ -29,8 +29,9 @@ jobs:
 
       - name: Commit data
         run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add bikemi_data.csv
-          git diff --cached --quiet || git commit -m "Update BikeMi data"
-          git push
+         git config user.name "github-actions"
+         git config user.email "actions@github.com"
+         git add .
+         git commit -m "Update BikeMi data" || echo "No changes to commit"
+         git push
+  
